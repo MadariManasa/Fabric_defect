@@ -280,7 +280,7 @@ class PCAReducer:
         }
         
         joblib.dump(model_data, model_path)
-        print(f"✓ PCA model saved to: {model_path}")
+        print(f"PCA model saved to: {model_path}")
         print(f"  - Model size: {os.path.getsize(model_path) / 1024:.2f} KB")
     
     def load_model(self, model_path):
@@ -305,7 +305,7 @@ class PCAReducer:
         self.random_state = model_data['random_state']
         self.is_fitted = True
         
-        print(f"✓ PCA model loaded from: {model_path}")
+        print(f"PCA model loaded from: {model_path}")
         print(f"  - Components: {self.pca.n_components_}")
         print(f"  - Variance explained: {self.cumulative_variance_ratio_[-1]:.4f}")
     
@@ -319,7 +319,7 @@ class PCAReducer:
         """
         Path(data_path).parent.mkdir(parents=True, exist_ok=True)
         np.save(data_path, X_transformed)
-        print(f"✓ Transformed data saved to: {data_path}")
+        print(f"Transformed data saved to: {data_path}")
         print(f"  - Shape: {X_transformed.shape}")
         print(f"  - File size: {os.path.getsize(data_path) / 1024:.2f} KB")
     
@@ -337,7 +337,7 @@ class PCAReducer:
             raise FileNotFoundError(f"Data file not found: {data_path}")
         
         X_transformed = np.load(data_path)
-        print(f"✓ Transformed data loaded from: {data_path}")
+        print(f"Transformed data loaded from: {data_path}")
         print(f"  - Shape: {X_transformed.shape}")
         return X_transformed
     
@@ -359,7 +359,7 @@ class PCAReducer:
             # Save as CSV for better readability
             np.savetxt(components_path, self.pca.components_, delimiter=',')
         
-        print(f"✓ Components saved to: {components_path}")
+        print(f"Components saved to: {components_path}")
         print(f"  - Shape: {self.pca.components_.shape}")
 
 
@@ -383,7 +383,7 @@ if __name__ == "__main__":
     # Fit and transform data
     X_transformed = pca_reducer.fit_transform(X)
     
-    print(f"✓ PCA initialized and fitted successfully!")
+    print(f"PCA initialized and fitted successfully!")
     print(f"  - Input shape: {X.shape}")
     print(f"  - Output shape: {X_transformed.shape}")
     print(f"  - Original features: {X.shape[1]}")
@@ -425,6 +425,6 @@ if __name__ == "__main__":
     # Load transformed data
     loaded_data = pca_loader.load_transformed_data(data_path)
     
-    print(f"\n✓ Model and data ready for classification!")
+    print(f"\nModel and data ready for classification!")
     print(f"  - Use {model_path} in classification module")
     print(f"  - Use {data_path} as feature input to classifier")

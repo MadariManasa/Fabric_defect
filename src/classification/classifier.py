@@ -17,30 +17,30 @@ from dimensionality.pca import PCAReducer
 class FabricClassifier:
 
     def __init__(self):
-        self.scaler = StandardScaler()
+        # We will use the internal scaler of PCAReducer
         self.pca = PCAReducer(variance_threshold=0.95)
-
         # SVM classifier
-        self.model = SVC(kernel='rbf', C=10, gamma='scale')
+        self.model = SVC(kernel='rbf', C=10, gamma='scale', probability=True)
 
     def load_features(self, csv_path):
-
         data = pd.read_csv(csv_path)
 
-        # Convert Hole/Lines → Defective
+        # Map labels to binary: Defective or Normal
         data["label"] = data["label"].apply(
-            lambda x: "Defective" if x.lower() in ["hole","holes","line","lines"] else "Normal"
+            lambda x: "Defective" if x.lower() in ["hole", "holes", "line", "lines", "defective"] else "Normal"
         )
 
-        # Create synthetic Normal samples if only one class exists
-        if data["label"].nunique() == 1:
+        # Check classes
+        classes = data["label"].unique()
+        print(f"Classes found: {classes}")
 
-            print("Only one class detected → generating synthetic Normal samples")
-
-            normal_samples = data.sample(frac=0.4, random_state=42).copy()
-            normal_samples["label"] = "Normal"
-
-            data = pd.concat([data, normal_samples], ignore_index=True)
+        if len(classes) == 1:
+            print("WARNING: Only one class detected! The model cannot be trained to distinguish categories.")
+            if "Normal" not in classes:
+                print("No 'Normal' samples found. Generating synthetic Normal samples (THIS IS NOT IDEAL).")
+                normal_samples = data.sample(frac=0.4, random_state=42).copy()
+                normal_samples["label"] = "Normal"
+                data = pd.concat([data, normal_samples], ignore_index=True)
 
         X = data.drop(columns=["filename", "label"]).values
         y = data["label"].values
@@ -48,7 +48,6 @@ class FabricClassifier:
         return X, y
 
     def train(self, X, y):
-
         X_train, X_test, y_train, y_test = train_test_split(
             X,
             y,
@@ -57,49 +56,43 @@ class FabricClassifier:
             stratify=y
         )
 
-        # Scale features
-        X_train = self.scaler.fit_transform(X_train)
-        X_test = self.scaler.transform(X_test)
+        print(f"Training on {X_train.shape[1]} features...")
 
-        # Apply PCA
-        X_train = self.pca.fit_transform(X_train)
-        X_test = self.pca.transform(X_test)
+        # Apply PCA (PCAReducer handles scaling internally)
+        X_train_pca = self.pca.fit_transform(X_train)
+        X_test_pca = self.pca.transform(X_test)
 
-        print("After PCA reduction:", X_train.shape)
+        print(f"Reduced to {X_train_pca.shape[1]} components via PCA.")
 
-        print("Training classifier...")
+        print("Training SVM classifier...")
+        self.model.fit(X_train_pca, y_train)
 
-        self.model.fit(X_train, y_train)
-
-        y_pred = self.model.predict(X_test)
-
+        y_pred = self.model.predict(X_test_pca)
         acc = accuracy_score(y_test, y_pred)
 
-        print("\nAccuracy:", acc)
-
-        print("\nClassification Report:\n")
-        print(classification_report(y_test, y_pred))
-
-        print("\nConfusion Matrix:\n")
-        print(confusion_matrix(y_test, y_pred))
-
-        # Example prediction
-        sample = X_test[0].reshape(1,-1)
-
-        prediction = self.model.predict(sample)
-
-        print("\nExample Prediction:", prediction[0])
+        print(f"\nModel Accuracy: {acc:.4f}")
+        print("\nClassification Report:\n", classification_report(y_test, y_pred))
+        print("\nConfusion Matrix:\n", confusion_matrix(y_test, y_pred))
 
         return acc
 
-    def save_model(self):
+    def save_model(self, model_dir="models"):
+        os.makedirs(model_dir, exist_ok=True)
+        joblib.dump(self.model, os.path.join(model_dir, "fabric_classifier.pkl"))
+        self.pca.save_model(os.path.join(model_dir, "pca_model.pkl"))
+        print(f"Model and PCA pipeline saved to {model_dir}")
 
-        os.makedirs("models", exist_ok=True)
+    def load_model(self, model_dir="models"):
+        self.model = joblib.load(os.path.join(model_dir, "fabric_classifier.pkl"))
+        self.pca.load_model(os.path.join(model_dir, "pca_model.pkl"))
+        print(f"Model and PCA pipeline loaded from {model_dir}")
 
-        joblib.dump(self.model, "models/fabric_classifier.pkl")
-        joblib.dump(self.scaler, "models/scaler.pkl")
-
-        print("Model saved successfully")
+    def predict(self, features):
+        """Expects a 2D array of features [1, n_features]"""
+        features_pca = self.pca.transform(features)
+        prediction = self.model.predict(features_pca)
+        probability = self.model.predict_proba(features_pca)
+        return prediction[0], probability[0]
 
 
 if __name__ == "__main__":
